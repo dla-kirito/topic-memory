@@ -1,8 +1,28 @@
 #!/bin/bash
 # PreCompact hook: 向 compact 提示词注入结构化提取指令
+# 同时注入已有 topic 列表，帮助 Claude 跨 session 复用 slug，实现 topic 连续性
 # Claude 在生成压缩摘要时会附带输出 topic-json 块
 # PostCompact hook 随后解析该块并写入 topic 文件
 
+# 读取 stdin，提取 transcript_path（PreCompact hook 通过 stdin 传入）
+INPUT=$(cat)
+TRANSCRIPT_PATH=$(echo "$INPUT" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    print(d.get('transcript_path', ''))
+except Exception:
+    print('')
+" 2>/dev/null)
+
+# 推导 topics 目录（transcript_path 的父目录 + /topics/TOPICS.md）
+TOPICS_INDEX=""
+if [ -n "$TRANSCRIPT_PATH" ]; then
+    PROJECT_DIR=$(dirname "$TRANSCRIPT_PATH")
+    TOPICS_INDEX="$PROJECT_DIR/topics/TOPICS.md"
+fi
+
+# 输出结构化提取指令
 cat << 'INSTRUCTIONS'
 在完成对话压缩摘要后，请在摘要末尾额外附加一个 topic-json 块，用于持久化保存本次任务的关键上下文。格式如下：
 
@@ -20,5 +40,12 @@ cat << 'INSTRUCTIONS'
 
 注意：如果对话内容不涉及具体任务（如纯聊天），可以省略此块。
 INSTRUCTIONS
+
+# 若当前项目已有 topic，提示 Claude 复用 slug（跨 session 连续性的关键）
+if [ -n "$TOPICS_INDEX" ] && [ -f "$TOPICS_INDEX" ]; then
+    echo ""
+    echo "【重要】当前项目已有以下 topics。如本次对话是其中某个 topic 的延续，请使用相同的 slug，不要新建："
+    cat "$TOPICS_INDEX"
+fi
 
 exit 0

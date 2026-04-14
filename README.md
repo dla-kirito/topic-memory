@@ -9,9 +9,11 @@ Claude Code's `/compact` command compresses conversation history — great for m
 ```
 ① PreCompact hook fires
    └── Injects extraction instructions into the compact prompt
+   └── Also injects existing TOPICS.md (for cross-session slug consistency)
 
 ② Compact runs (Claude summarizes + extracts topic-json)
    └── One model call — zero extra API cost
+   └── Reuses existing slug if conversation continues a prior topic
 
 ③ PostCompact hook fires
    └── Parses the topic-json block from the summary
@@ -20,6 +22,10 @@ Claude Code's `/compact` command compresses conversation history — great for m
 
 ④ On demand: /recall <keyword>
    └── Scans topic index → shows matches → injects into session
+
+⑤ On demand: /note [topic-name]
+   └── Saves current session context immediately (no compact needed)
+   └── Optional: specify topic name to update an existing topic
 ```
 
 ## Installation
@@ -43,6 +49,15 @@ Then restart Claude Code.
 ```
 
 Claude will find matching topics, show a summary, and inject the selected context into your session.
+
+**Note** — save progress immediately without waiting for compact:
+
+```
+/note                            # save current session context now
+/note react-performance          # update a specific topic by name
+```
+
+Use `/note` at key milestones or before switching tasks. Also useful for aligning cross-session topic identity — if you forgot to `/recall` at session start, `/note react-performance` will merge your work into the right existing topic.
 
 ## What gets saved
 
@@ -108,6 +123,8 @@ topic-memory/
     ├── recall/
     │   ├── SKILL.md                  # /recall skill
     │   └── scripts/search_topics.py
+    ├── note/
+    │   └── SKILL.md                  # /note skill
     └── install-topic-memory/
         └── SKILL.md                  # /install-topic-memory skill
 ```

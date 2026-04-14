@@ -36,6 +36,7 @@ fi
 # 创建目录
 mkdir -p "$HOOKS_DIR"
 mkdir -p "$SKILLS_DIR/recall/scripts"
+mkdir -p "$SKILLS_DIR/note"
 mkdir -p "$SKILLS_DIR/install-topic-memory"
 
 # 下载 hooks
@@ -48,6 +49,8 @@ curl -sSL "$REPO_URL/hooks/post-compact-save-topic.py" -o "$HOOKS_DIR/post-compa
 echo "→ Installing skills..."
 curl -sSL "$REPO_URL/skills/recall/SKILL.md" -o "$SKILLS_DIR/recall/SKILL.md"
 curl -sSL "$REPO_URL/skills/recall/scripts/search_topics.py" -o "$SKILLS_DIR/recall/scripts/search_topics.py"
+mkdir -p "$SKILLS_DIR/note"
+curl -sSL "$REPO_URL/skills/note/SKILL.md" -o "$SKILLS_DIR/note/SKILL.md"
 curl -sSL "$REPO_URL/skills/install-topic-memory/SKILL.md" -o "$SKILLS_DIR/install-topic-memory/SKILL.md"
 
 # 更新 settings.json
@@ -92,10 +95,13 @@ echo "  $HOOKS_DIR/pre-compact-inject.sh"
 echo "  $HOOKS_DIR/post-compact-save-topic.py"
 echo "  $SKILLS_DIR/recall/SKILL.md"
 echo "  $SKILLS_DIR/recall/scripts/search_topics.py"
+echo "  $SKILLS_DIR/note/SKILL.md"
 echo ""
 echo "Usage:"
 echo "  Automatic : topic is saved on every compact"
 echo "  Recall    : /recall <keyword>  in Claude Code"
+echo "  Note      : /note              save progress immediately (no compact needed)"
+echo "              /note <name>       update a specific topic"
 echo ""
 echo -e "${YELLOW}Restart Claude Code to activate.${NC}"
 echo ""

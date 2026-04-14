@@ -104,18 +104,14 @@ def write_topic_file(topics_dir: Path, data: dict, session_id: str):
         new_decisions = data.get("decisions", [])
         new_pitfalls = data.get("pitfalls", [])
 
-        # 提取已有 decisions 和 pitfalls（避免重复）
-        existing_decisions_match = re.search(
-            r"## 关键决策\n(.*?)(?=\n##|\Z)", existing_body, re.DOTALL
-        )
+        # 提取已有 pitfalls（去重追加，保留历史踩坑记录）
         existing_pitfalls_match = re.search(
             r"## 踩坑记录\n(.*?)(?=\n##|\Z)", existing_body, re.DOTALL
         )
-        existing_decisions_text = existing_decisions_match.group(1) if existing_decisions_match else ""
         existing_pitfalls_text = existing_pitfalls_match.group(1) if existing_pitfalls_match else ""
 
-        # 只追加不在已有内容中的新条目
-        appended_decisions = [d for d in new_decisions if d not in existing_decisions_text]
+        # decisions：覆盖（compact 已看完整历史，最新结果最准确，追加会引入矛盾条目）
+        # pitfalls：追加去重（踩坑记录是历史教训，即使已解决也有参考价值）
         appended_pitfalls = [p for p in new_pitfalls if p not in existing_pitfalls_text]
 
         # 重建文件
@@ -125,7 +121,7 @@ def write_topic_file(topics_dir: Path, data: dict, session_id: str):
             sessions=sessions,
             date=today,
             task_goal=data.get("task_goal", ""),
-            decisions=_parse_existing_list(existing_decisions_text) + appended_decisions,
+            decisions=new_decisions,
             preferences=data.get("preferences", []),
             pitfalls=_parse_existing_list(existing_pitfalls_text) + appended_pitfalls,
             current_status=data.get("current_status", ""),

@@ -33,9 +33,29 @@ mkdir -p ~/.claude/skills/install-topic-memory
 ```
 #!/bin/bash
 # PreCompact hook: 向 compact 提示词注入结构化提取指令
+# 同时注入已有 topic 列表，帮助 Claude 跨 session 复用 slug，实现 topic 连续性
 # Claude 在生成压缩摘要时会附带输出 topic-json 块
 # PostCompact hook 随后解析该块并写入 topic 文件
 
+# 读取 stdin，提取 transcript_path（PreCompact hook 通过 stdin 传入）
+INPUT=$(cat)
+TRANSCRIPT_PATH=$(echo "$INPUT" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    print(d.get('transcript_path', ''))
+except Exception:
+    print('')
+" 2>/dev/null)
+
+# 推导 topics 目录（transcript_path 的父目录 + /topics/TOPICS.md）
+TOPICS_INDEX=""
+if [ -n "$TRANSCRIPT_PATH" ]; then
+    PROJECT_DIR=$(dirname "$TRANSCRIPT_PATH")
+    TOPICS_INDEX="$PROJECT_DIR/topics/TOPICS.md"
+fi
+
+# 输出结构化提取指令
 cat << 'INSTRUCTIONS'
 在完成对话压缩摘要后，请在摘要末尾额外附加一个 topic-json 块，用于持久化保存本次任务的关键上下文。格式如下：
 
@@ -53,6 +73,13 @@ cat << 'INSTRUCTIONS'
 
 注意：如果对话内容不涉及具体任务（如纯聊天），可以省略此块。
 INSTRUCTIONS
+
+# 若当前项目已有 topic，提示 Claude 复用 slug（跨 session 连续性的关键）
+if [ -n "$TOPICS_INDEX" ] && [ -f "$TOPICS_INDEX" ]; then
+    echo ""
+    echo "【重要】当前项目已有以下 topics。如本次对话是其中某个 topic 的延续，请使用相同的 slug，不要新建："
+    cat "$TOPICS_INDEX"
+fi
 
 exit 0
 ```
@@ -384,6 +411,71 @@ if __name__ == "__main__":
     main()
 ```
 
+### Step 6.5 — 写入 note skill
+
+创建目录 `~/.claude/skills/note/`，然后创建文件 `~/.claude/skills/note/SKILL.md`，写入以下**完整内容**：
+
+```
+---
+name: note
+description: 手动将当前 session 关键上下文保存为 topic 文件（立即保存，无需等 compact）。当用户说"/note"、"/note <topic名称>"、"保存进度"、"记录一下"、"记一下"时触发。
+---
+
+# Note — 手动保存 Topic
+
+将当前 session 的关键上下文立即保存（或更新）到 topic 文件。无需等待 compact，随时可用。
+
+## 定位搜索脚本
+
+SCRIPT_DIR="$(find ~/.claude ~/Library/Caches/coco/plugins -path '*/recall/scripts/search_topics.py' -print -quit 2>/dev/null | xargs dirname 2>/dev/null)"
+
+## 工作流
+
+### Step 1 — 确定 topics 目录
+
+CWD=$(pwd)
+SANITIZED=$(echo "$CWD" | sed 's|/|-|g')
+TOPICS_DIR="$HOME/.claude/projects/${SANITIZED}/topics"
+
+若 topics 目录不存在，创建它：mkdir -p "$TOPICS_DIR"
+
+### Step 2 — 确认目标 topic
+
+如果用户提供了 topic 名称（如 `/note react-performance`）：
+  - 搜索匹配的已有 topic：
+    `python3 "$SCRIPT_DIR/search_topics.py" --topics-dir "$TOPICS_DIR" --query "<用户提供的名称>"`
+  - 若找到匹配项，展示其 slug + description，询问用户确认是否更新该 topic
+  - 若未找到，以该名称作为 slug 新建
+
+如果用户未提供名称（直接 `/note`）：
+  - 列出最近 5 个 topic：
+    `python3 "$SCRIPT_DIR/search_topics.py" --topics-dir "$TOPICS_DIR"`
+  - 读取每个返回路径的 frontmatter，展示 slug + description
+  - 询问用户："要更新以上某个 topic，还是新建一个？"
+
+### Step 3 — 提炼当前 session 上下文
+
+根据当前对话内容，生成以下字段：
+- topic_slug（更新时沿用原 slug，新建时生成英文短横线标识符）
+- description（一句话，50字以内）
+- task_goal、decisions（含原因）、preferences、pitfalls、current_status
+
+### Step 4 — 写入 topic 文件
+
+新建时创建文件，写入标准 frontmatter + 各节；更新时 Read 读取现有内容，合并后 Write 覆盖：
+- decisions：覆盖（最新最准确）
+- pitfalls：去重追加（历史教训不消失）
+- sessions：追加当前 session；其余字段覆盖
+
+### Step 5 — 更新 TOPICS.md 索引
+
+格式：`- [slug](slug.md) — description`；已有同 slug 行替换，否则插入开头；max 200 行。
+
+### Step 6 — 确认
+
+"已保存 topic [<slug>] ✓"
+```
+
 ### Step 7 — 更新 settings.json
 
 读取 `~/.claude/settings.json`，在 `hooks` 字段中合并写入以下配置（保留所有现有字段，若已有相同 command 则跳过）：
@@ -419,12 +511,15 @@ if __name__ == "__main__":
   ~/.claude/hooks/post-compact-save-topic.py
   ~/.claude/skills/recall/SKILL.md
   ~/.claude/skills/recall/scripts/search_topics.py
+  ~/.claude/skills/note/SKILL.md
 
 ~/.claude/settings.json 已更新（PreCompact + PostCompact hooks）
 
 使用方式：
   自动：每次 compact 时自动提取并保存任务 topic
   召回：/recall <关键词>  搜索并注入历史 topic
+  记录：/note             立即保存当前进度（无需等 compact）
+        /note <名称>       更新指定 topic
 
 重启 Claude Code 后生效。
 ```
