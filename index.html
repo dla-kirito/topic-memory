@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Topic Memory — Never lose session context in Claude Code</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    * { box-sizing: border-box; }
+
+    body {
+      background-color: #020617;
+      font-family: 'Inter', -apple-system, sans-serif;
+      color: #e2e8f0;
+      overflow-x: hidden;
+    }
+
+    /* Background atmosphere */
+    .bg-glow {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .bg-glow::before {
+      content: '';
+      position: absolute;
+      top: -20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      height: 600px;
+      background: radial-gradient(ellipse at center, rgba(56,189,248,0.07) 0%, transparent 70%);
+    }
+    .bg-glow::after {
+      content: '';
+      position: absolute;
+      top: 30%;
+      right: -10%;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(ellipse at center, rgba(139,92,246,0.05) 0%, transparent 70%);
+    }
+
+    /* Grid overlay */
+    .grid-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+
+    .content { position: relative; z-index: 1; }
+
+    /* Gradient headline */
+    .headline-gradient {
+      background: linear-gradient(135deg, #f8fafc 0%, #94a3b8 60%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .accent-gradient {
+      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Terminal */
+    .terminal {
+      background: #0a0f1a;
+      border: 1px solid rgba(56,189,248,0.15);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(56,189,248,0.05),
+        0 25px 50px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .terminal-bar {
+      background: #111827;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .terminal-body {
+      padding: 20px 24px;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .prompt { color: #475569; }
+    .cmd { color: #22d3ee; }
+    .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1em;
+      background: #22d3ee;
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: blink 1.2s step-end infinite;
+    }
+    @keyframes blink { 0%,100% { opacity:1 } 50% { opacity:0 } }
+
+    /* Copy button */
+    .copy-btn {
+      background: rgba(56,189,248,0.1);
+      border: 1px solid rgba(56,189,248,0.2);
+      color: #38bdf8;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .copy-btn:hover {
+      background: rgba(56,189,248,0.2);
+      border-color: rgba(56,189,248,0.4);
+    }
+    .copy-btn:active { transform: scale(0.96); }
+
+    /* Step cards */
+    .step-card {
+      background: rgba(15,23,42,0.8);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 28px;
+      transition: border-color 0.2s;
+    }
+    .step-card:hover { border-color: rgba(56,189,248,0.2); }
+
+    .step-num {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: #38bdf8;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .step-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 8px;
+    }
+    .step-desc {
+      font-size: 14px;
+      color: #64748b;
+      line-height: 1.6;
+    }
+    .step-code {
+      display: inline;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: #38bdf8;
+    }
+
+    /* Usage block */
+    .usage-block {
+      background: #0a0f1a;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .usage-row {
+      padding: 20px 28px;
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+    }
+    .usage-row + .usage-row {
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+    .usage-cmd {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      color: #22d3ee;
+      white-space: nowrap;
+      min-width: 220px;
+    }
+    .usage-desc {
+      font-size: 14px;
+      color: #64748b;
+      padding-top: 1px;
+    }
+
+    /* GitHub link */
+    .gh-link {
+      color: #475569;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.15s;
+      text-decoration: none;
+    }
+    .gh-link:hover { color: #94a3b8; }
+
+    /* Section label */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #334155;
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    /* Fade in animation */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .hero-content { animation: fadeUp 0.7s ease both; }
+    .section-1    { animation: fadeUp 0.7s 0.1s ease both; }
+    .section-2    { animation: fadeUp 0.7s 0.15s ease both; }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="grid-overlay"></div>
+
+  <div class="content">
+    <!-- Hero -->
+    <section style="max-width:720px;margin:0 auto;padding:40px 32px 80px;text-align:center;">
+      <div class="hero-content">
+        <div style="display:flex;align-items:center;justify-content:center;margin-bottom:32px;">
+          <a href="https://github.com/dla-kirito/topic-memory" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:100px;padding:6px 16px 6px 12px;font-size:13px;font-weight:500;color:#94a3b8;text-decoration:none;transition:all 0.15s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.2)';this.style.color='#e2e8f0'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)';this.style.color='#94a3b8'">
+            <svg height="16" viewBox="0 0 16 16" width="16" fill="currentColor">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+                       0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+                       -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+                       .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+                       -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27
+                       .68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12
+                       .51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48
+                       0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+            </svg>
+            GitHub
+          </a>
+        </div>
+
+        <h1 style="font-size:clamp(2.5rem,6vw,3.75rem);font-weight:800;line-height:1.1;letter-spacing:-0.03em;margin-bottom:24px;">
+          <span class="headline-gradient">Task context that</span><br/>
+          <span class="headline-gradient">survives</span><span class="accent-gradient"> /compact</span><span class="headline-gradient">.</span>
+        </h1>
+
+        <p style="font-size:18px;color:#64748b;line-height:1.7;max-width:480px;margin:0 auto 48px;font-weight:400;">
+          /compact resets the context window — but wipes your task state too.
+          Topic Memory hooks in to save decisions, preferences, and pitfalls,
+          so you can pick up exactly where you left off.
+        </p>
+
+        <!-- Terminal -->
+        <div class="terminal" style="max-width:600px;margin:0 auto;">
+          <div class="terminal-bar">
+            <div class="dot" style="background:#ff5f57;"></div>
+            <div class="dot" style="background:#febc2e;"></div>
+            <div class="dot" style="background:#28c840;"></div>
+            <span style="font-size:12px;color:#475569;font-family:'JetBrains Mono',monospace;margin-left:8px;">install</span>
+          </div>
+          <div class="terminal-body">
+            <div style="flex:1;overflow:hidden;">
+              <span class="prompt">$ </span><span class="cmd" id="install-cmd">curl -sSL https://raw.githubusercontent.com/dla-kirito/topic-memory/main/install.sh | bash</span><span class="cursor"></span>
+            </div>
+            <button class="copy-btn" onclick="copyInstall()" id="copy-btn">Copy</button>
+          </div>
+        </div>
+        <p style="font-size:12px;color:#334155;margin-top:12px;">Requires Python 3 · Restart Claude Code after install</p>
+      </div>
+    </section>
+
+    <div class="divider" style="max-width:720px;margin:0 auto;"></div>
+
+    <!-- How it works -->
+    <section class="section-1" style="max-width:720px;margin:0 auto;padding:72px 32px;">
+      <p class="section-label">How it works</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+
+        <div class="step-card">
+          <div class="step-num">Step 01</div>
+          <div class="step-title">Hooks into /compact</div>
+          <div class="step-desc">
+            Every time you run /compact, Topic Memory automatically extracts the session's task context — no extra steps.
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-num">Step 02</div>
+          <div class="step-title">Saved as a topic file</div>
+          <div class="step-desc">
+            Decisions, preferences, and pitfalls — structured per project, persisted across sessions.
+          </div>
+        </div>
+
+        <div class="step-card">
+          <div class="step-num">Step 03</div>
+          <div class="step-title">Resume with a command</div>
+          <div class="step-desc">
+            /topic-recall surfaces the right context. Claude ranks by relevance — you just pick and continue.
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    function copyInstall() {
+      const cmd = document.getElementById('install-cmd').textContent.trim();
+      navigator.clipboard.writeText(cmd).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = 'Copied!';
+        btn.style.background = 'rgba(34,211,238,0.15)';
+        btn.style.borderColor = 'rgba(34,211,238,0.4)';
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.style.background = '';
+          btn.style.borderColor = '';
+        }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>
