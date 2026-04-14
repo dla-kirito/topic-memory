@@ -1,34 +1,37 @@
 #!/usr/bin/env python3
 """
-search_topics.py — 搜索 topics 目录中的相关 topic 文件
+search_topics.py — 列出 topics 目录中的候选文件，供 Claude 做语义相关性判断
 
 用法：
-  python3 search_topics.py --topics-dir <path> [--query <关键词>]
+  python3 search_topics.py --topics-dir <path> [--limit N] [--format manifest|paths]
 
 输出：
-  每行一个匹配的 topic 文件绝对路径（按相关度/修改时间排序，最多 5 个）
+  manifest（默认）：每行 "slug (date): description"，供 Claude 语义排序
+  paths：每行一个文件绝对路径（兼容旧用法）
+
+设计说明：
+  关键词匹配由 Claude 语义判断取代 —— skill 执行时 Claude 已在运行，
+  无需额外 API 调用即可完成语义相关性排序（参考 Claude Code 内置 Memory
+  的 findRelevantMemories 设计思路）。
+  此脚本只负责扫描文件、提取 frontmatter，返回候选池。
 """
 
 import argparse
-import os
 import re
 import sys
 from pathlib import Path
 
 
 def parse_frontmatter(content: str) -> dict:
-    """读取文件前 20 行中的 YAML frontmatter"""
-    lines = content.splitlines()[:20]
+    """读取文件前 30 行中的 YAML frontmatter"""
     fm = {}
-    in_fm = False
-    for line in lines:
+    lines = content.splitlines()[:30]
+    if not lines or lines[0].strip() != "---":
+        return fm
+    for line in lines[1:]:
         if line.strip() == "---":
-            if not in_fm:
-                in_fm = True
-                continue
-            else:
-                break
-        if in_fm and ":" in line:
+            break
+        if ":" in line:
             key, _, val = line.partition(":")
             fm[key.strip()] = val.strip().strip('"').strip("'")
     return fm
@@ -44,9 +47,8 @@ def scan_topics(topics_dir: Path) -> list[dict]:
         if f.name == "TOPICS.md":
             continue
         try:
-            # 只读前 20 行，高效
             with open(f, encoding="utf-8") as fp:
-                head = "".join(fp.readline() for _ in range(20))
+                head = "".join(fp.readline() for _ in range(30))
             fm = parse_frontmatter(head)
             results.append({
                 "path": str(f),
@@ -62,28 +64,26 @@ def scan_topics(topics_dir: Path) -> list[dict]:
     return results
 
 
-def keyword_match_score(item: dict, query: str) -> int:
-    """简单关键词匹配打分（不需要 API）"""
-    score = 0
-    query_lower = query.lower()
-    keywords = re.split(r"[\s,，、]+", query_lower)
-
-    text = f"{item['topic']} {item['description']}".lower()
-    for kw in keywords:
-        if kw and kw in text:
-            score += 1
-        # topic slug 精确匹配加分
-        if kw and kw in item["topic"].lower():
-            score += 2
-
-    return score
+def format_manifest(items: list[dict]) -> str:
+    """格式化为 Claude 可读的候选清单，参考 Claude Code memoryScan.formatMemoryManifest"""
+    lines = []
+    for item in items:
+        slug = item["topic"]
+        date = item["date"] or "unknown"
+        desc = item["description"]
+        if desc:
+            lines.append(f"- {slug} ({date}): {desc}")
+        else:
+            lines.append(f"- {slug} ({date})")
+    return "\n".join(lines)
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--topics-dir", required=True, help="topics 目录路径")
-    parser.add_argument("--query", default="", help="搜索关键词")
-    parser.add_argument("--limit", type=int, default=5, help="最多返回数量")
+    parser.add_argument("--limit", type=int, default=20, help="最多返回候选数量（默认 20）")
+    parser.add_argument("--format", choices=["manifest", "paths"], default="manifest",
+                        help="输出格式：manifest（默认，供 Claude 语义排序）或 paths（文件路径）")
     args = parser.parse_args()
 
     topics_dir = Path(args.topics_dir).expanduser()
@@ -92,25 +92,14 @@ def main():
     if not items:
         sys.exit(0)
 
-    query = args.query.strip()
+    # 按修改时间降序（最近的在前），截取候选池
+    items = sorted(items, key=lambda x: -x["mtime"])[:args.limit]
 
-    if query:
-        # 关键词匹配，过滤掉得分为 0 的
-        scored = [(keyword_match_score(item, query), item) for item in items]
-        scored = [(s, i) for s, i in scored if s > 0]
-        # 分数相同时按修改时间降序
-        scored.sort(key=lambda x: (-x[0], -x[1]["mtime"]))
-        results = [i for _, i in scored[:args.limit]]
-
-        # 若关键词匹配无结果，退回到时间排序
-        if not results:
-            results = sorted(items, key=lambda x: -x["mtime"])[:args.limit]
+    if args.format == "manifest":
+        print(format_manifest(items))
     else:
-        # 无 query：最近修改的
-        results = sorted(items, key=lambda x: -x["mtime"])[:args.limit]
-
-    for item in results:
-        print(item["path"])
+        for item in items:
+            print(item["path"])
 
 
 if __name__ == "__main__":

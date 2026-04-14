@@ -227,6 +227,7 @@ def main():
         # 解析 topic-json 块
         data = parse_topic_json(compact_summary)
         if not data:
+            print("[Topic Memory] 本次 compact 未提取到 task context（纯对话或 Claude 遗漏），可用 /topic-note 手动保存")
             sys.exit(0)
 
         # 确保 topics 目录存在

@@ -43,9 +43,9 @@ Then restart Claude Code.
 **Recall** — when starting a new session or after compact:
 
 ```
-/recall performance optimization
-/recall auth refactor
-/recall                          # shows 5 most recent topics
+/topic-recall performance optimization
+/topic-recall auth refactor
+/topic-recall                    # shows 5 most recent topics
 ```
 
 Claude will find matching topics, show a summary, and inject the selected context into your session.

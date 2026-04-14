@@ -23,16 +23,18 @@ TOPICS_DIR="$HOME/.claude/projects/${SANITIZED}/topics"
 
 ### Step 2 — 确认目标 topic
 
+获取最近 20 个 topic 的 manifest：
+```bash
+python3 "$SCRIPT_DIR/search_topics.py" --topics-dir "$TOPICS_DIR" --format manifest --limit 20
+```
+
 **如果用户提供了 topic 名称**（如 `/note react-performance`）：
-- 搜索匹配的已有 topic：
-  `python3 "$SCRIPT_DIR/search_topics.py" --topics-dir "$TOPICS_DIR" --query "<用户提供的名称>"`
+- 从 manifest 中语义判断最匹配的已有 topic
 - 若找到匹配项，展示其 slug + description，询问用户确认是否更新该 topic
-- 若未找到，以该名称作为 slug 新建
+- 若确实无匹配，以该名称作为 slug 新建
 
 **如果用户未提供名称**（直接 `/note`）：
-- 列出最近 5 个 topic：
-  `python3 "$SCRIPT_DIR/search_topics.py" --topics-dir "$TOPICS_DIR"`
-- 读取每个返回路径的 frontmatter，展示 slug + description
+- 展示 manifest 中最近 5 个 topic 的 slug + description
 - 询问用户："要更新以上某个 topic，还是新建一个？"
 
 ### Step 3 — 提炼当前 session 上下文
