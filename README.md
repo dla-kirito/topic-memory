@@ -21,7 +21,8 @@ Claude Code's `/compact` command compresses conversation history — great for m
    └── Updates TOPICS.md index
 
 ④ On demand: /topic-recall <keyword>
-   └── Scans topic index → shows matches → injects into session
+   └── Lists recent topics as candidates (up to 20)
+   └── Claude semantically ranks by relevance → user selects → injects
 
 ⑤ On demand: /topic-note [topic-name]
    └── Saves current session context immediately (no compact needed)
