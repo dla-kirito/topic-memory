@@ -1,5 +1,5 @@
 ---
-name: note
+name: topic-note
 description: 手动将当前 session 关键上下文保存为 topic 文件（立即保存，无需等 compact）。当用户说"/note"、"/note <topic名称>"、"保存进度"、"记录一下"、"记一下"时触发。
 ---
 
@@ -9,7 +9,7 @@ description: 手动将当前 session 关键上下文保存为 topic 文件（立
 
 ## 定位搜索脚本
 
-SCRIPT_DIR="$(find ~/.claude ~/Library/Caches/coco/plugins -path '*/recall/scripts/search_topics.py' -print -quit 2>/dev/null | xargs dirname 2>/dev/null)"
+SCRIPT_DIR="$(find ~/.claude ~/Library/Caches/coco/plugins -path '*/topic-recall/scripts/search_topics.py' -print -quit 2>/dev/null | xargs dirname 2>/dev/null)"
 
 ## 工作流
 

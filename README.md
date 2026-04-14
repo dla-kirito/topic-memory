@@ -20,10 +20,10 @@ Claude Code's `/compact` command compresses conversation history — great for m
    └── Writes ~/.claude/projects/<project>/topics/<slug>.md
    └── Updates TOPICS.md index
 
-④ On demand: /recall <keyword>
+④ On demand: /topic-recall <keyword>
    └── Scans topic index → shows matches → injects into session
 
-⑤ On demand: /note [topic-name]
+⑤ On demand: /topic-note [topic-name]
    └── Saves current session context immediately (no compact needed)
    └── Optional: specify topic name to update an existing topic
 ```
@@ -53,11 +53,11 @@ Claude will find matching topics, show a summary, and inject the selected contex
 **Note** — save progress immediately without waiting for compact:
 
 ```
-/note                            # save current session context now
-/note react-performance          # update a specific topic by name
+/topic-note                      # save current session context now
+/topic-note react-performance    # update a specific topic by name
 ```
 
-Use `/note` at key milestones or before switching tasks. Also useful for aligning cross-session topic identity — if you forgot to `/recall` at session start, `/note react-performance` will merge your work into the right existing topic.
+Use `/topic-note` at key milestones or before switching tasks. Also useful for aligning cross-session topic identity — if you forgot to `/topic-recall` at session start, `/topic-note react-performance` will merge your work into the right existing topic.
 
 ## What gets saved
 
@@ -106,7 +106,7 @@ Topics are per-project and persist across sessions.
 |---|---|---|
 | What it stores | Who you are (preferences, role) | What you're doing (task context) |
 | Written by | Claude, when it decides to | Automatically on every compact |
-| Loaded | Every session, automatically | On demand via `/recall` |
+| Loaded | Every session, automatically | On demand via `/topic-recall` |
 | Fades | Slowly | Quickly (task state changes) |
 
 They complement each other — Memory is your profile, Topic Memory is your task notebook.
@@ -120,11 +120,11 @@ topic-memory/
 │   ├── pre-compact-inject.sh         # PreCompact hook
 │   └── post-compact-save-topic.py    # PostCompact hook
 └── skills/
-    ├── recall/
-    │   ├── SKILL.md                  # /recall skill
+    ├── topic-recall/
+    │   ├── SKILL.md                  # /topic-recall skill
     │   └── scripts/search_topics.py
-    ├── note/
-    │   └── SKILL.md                  # /note skill
+    ├── topic-note/
+    │   └── SKILL.md                  # /topic-note skill
     └── install-topic-memory/
         └── SKILL.md                  # /install-topic-memory skill
 ```

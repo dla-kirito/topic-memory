@@ -1,5 +1,5 @@
 ---
-name: recall
+name: topic-recall
 description: 召回历史 topic 上下文注入当前 session。当用户说"召回"、"/recall"、"找一下之前"、"上次做过"、"之前的任务"、"记得之前"时触发。
 ---
 
@@ -10,7 +10,7 @@ description: 召回历史 topic 上下文注入当前 session。当用户说"召
 ## 定位脚本
 
 ```bash
-SCRIPT_DIR="$(find ~/.claude ~/Library/Caches/coco/plugins -path '*/recall/scripts/search_topics.py' -print -quit 2>/dev/null | xargs dirname 2>/dev/null)"
+SCRIPT_DIR="$(find ~/.claude ~/Library/Caches/coco/plugins -path '*/topic-recall/scripts/search_topics.py' -print -quit 2>/dev/null | xargs dirname 2>/dev/null)"
 ```
 
 ## 工作流
