@@ -46,6 +46,8 @@ python3 "$SCRIPT_DIR/search_topics.py" --topics-dir "$TOPICS_DIR" --format manif
 - **decisions**：关键决策列表，每条含原因（如"用 X 而非 Y，原因：Z"）
 - **preferences**：观察到的用户编码/工作偏好
 - **pitfalls**：踩坑记录或失败的尝试
+- **files_and_functions**：关键文件路径及用途，格式"path/to/file — 一句话说明"
+- **workflow**：常用构建/测试/运行命令及顺序，格式"命令 — 用途"
 - **current_status**：当前进度和下一步计划
 
 ### Step 4 — 写入 topic 文件
@@ -73,6 +75,12 @@ date: <今天日期 YYYY-MM-DD>
 ## 踩坑记录
 - <pitfall1>
 
+## 关键文件
+- <path/to/file — 用途说明>
+
+## 工作流程
+- <命令 — 用途>
+
 ## 当前状态
 <current_status>
 ```
@@ -81,6 +89,8 @@ date: <今天日期 YYYY-MM-DD>
 - `sessions` 字段：在列表末尾追加当前 session_id（如已知）；去重
 - `decisions`：覆盖为最新提炼的内容（compact 看完整历史，最新最准确）
 - `pitfalls`：去重追加（历史教训不消失）
+- `files_and_functions`：覆盖为最新（最新最准）
+- `workflow`：覆盖为最新（最新最准）
 - `current_status`、`task_goal`、`description`：覆盖为最新
 - `date`：更新为今天
 

@@ -34,9 +34,15 @@ cat << 'INSTRUCTIONS'
   "decisions": ["关键决策1（含原因）", "关键决策2（含原因）"],
   "preferences": ["观察到的用户编码/工作偏好1", "偏好2"],
   "pitfalls": ["踩过的坑或失败的尝试"],
+  "files_and_functions": ["path/to/file.ts — 作用简述", "src/utils/foo.py — 用途说明"],
+  "workflow": ["命令1及用途，如 npm run dev — 启动开发服务器", "命令2及用途"],
   "current_status": "当前进度和下一步"
 }
 ```
+
+字段说明：
+- "files_and_functions"：本次任务涉及的关键文件和函数，格式"路径 — 一句话说明"。若无明显关键文件可留空 []。
+- "workflow"：常用的构建/测试/运行命令及顺序，格式"命令 — 用途"。若无明显 workflow 可留空 []。
 
 注意：如果对话内容不涉及具体任务（如纯聊天），可以省略此块。
 INSTRUCTIONS

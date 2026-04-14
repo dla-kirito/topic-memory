@@ -112,6 +112,7 @@ def write_topic_file(topics_dir: Path, data: dict, session_id: str):
 
         # decisions：覆盖（compact 已看完整历史，最新结果最准确，追加会引入矛盾条目）
         # pitfalls：追加去重（踩坑记录是历史教训，即使已解决也有参考价值）
+        # files_and_functions、workflow：覆盖（同 decisions，最新最准）
         appended_pitfalls = [p for p in new_pitfalls if p not in existing_pitfalls_text]
 
         # 重建文件
@@ -124,6 +125,8 @@ def write_topic_file(topics_dir: Path, data: dict, session_id: str):
             decisions=new_decisions,
             preferences=data.get("preferences", []),
             pitfalls=_parse_existing_list(existing_pitfalls_text) + appended_pitfalls,
+            files_and_functions=data.get("files_and_functions", []),
+            workflow=data.get("workflow", []),
             current_status=data.get("current_status", ""),
         )
     else:
@@ -138,6 +141,8 @@ def write_topic_file(topics_dir: Path, data: dict, session_id: str):
             decisions=data.get("decisions", []),
             preferences=data.get("preferences", []),
             pitfalls=data.get("pitfalls", []),
+            files_and_functions=data.get("files_and_functions", []),
+            workflow=data.get("workflow", []),
             current_status=data.get("current_status", ""),
         )
 
@@ -156,7 +161,8 @@ def _parse_existing_list(text: str) -> list:
 
 
 def _build_topic_content(
-    slug, description, sessions, date, task_goal, decisions, preferences, pitfalls, current_status
+    slug, description, sessions, date, task_goal, decisions, preferences, pitfalls,
+    files_and_functions, workflow, current_status
 ) -> str:
     sessions_str = "[" + ", ".join(sessions) + "]"
     lines = [
@@ -176,6 +182,10 @@ def _build_topic_content(
         lines += ["## 用户偏好"] + [f"- {p}" for p in preferences] + [""]
     if pitfalls:
         lines += ["## 踩坑记录"] + [f"- {p}" for p in pitfalls] + [""]
+    if files_and_functions:
+        lines += ["## 关键文件"] + [f"- {f}" for f in files_and_functions] + [""]
+    if workflow:
+        lines += ["## 工作流程"] + [f"- {w}" for w in workflow] + [""]
     if current_status:
         lines += ["## 当前状态", current_status, ""]
     return "\n".join(lines)
